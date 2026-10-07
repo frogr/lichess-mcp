@@ -1,0 +1,24 @@
+# Render Blueprint: New > Blueprint > pick this repo.
+services:
+  - type: web
+    name: lichess-mcp
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Render puts one proxy in front of the app; use its X-Forwarded-For entry for rate limiting.
+      - key: TRUST_PROXY
+        value: "1"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "30"
+      - key: DAILY_REQUEST_LIMIT
+        value: "5000"
+      # Optional. Personal token from https://lichess.org/account/oauth/token (no scopes).
+      # Enables opening_stats. Leave unset to run without it.
+      - key: LICHESS_TOKEN
+        sync: false
