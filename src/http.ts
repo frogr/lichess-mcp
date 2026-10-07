@@ -132,14 +132,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
       const addr = server.address();
       const port = typeof addr === "object" && addr ? addr.port : "?";
       console.error(
-        `lichess-mcp listening on http://localhost:${port} (MCP at /mcp, playground at /)${process.env.LICHESS_TOKEN ? " (LICHESS_TOKEN set)" : ""}`,
+        `lichess-coach-mcp listening on http://localhost:${port} (MCP at /mcp, playground at /)${process.env.LICHESS_TOKEN ? " (LICHESS_TOKEN set)" : ""}`,
       );
       const shutdown = () => server.close(() => process.exit(0));
       process.on("SIGTERM", shutdown);
       process.on("SIGINT", shutdown);
     })
     .catch((err) => {
-      console.error("lichess-mcp failed to start:", err);
+      console.error("lichess-coach-mcp failed to start:", err);
       process.exit(1);
     });
 }

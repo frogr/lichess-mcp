@@ -7,14 +7,14 @@ What was checked, how, and what wasn't. Everything below was run on 2026-10-07 w
 ```
 $ npm test
  Test Files  7 passed (7)
-      Tests  95 passed (95)
+      Tests  96 passed (96)
 ```
 
 | File | Tests | Covers |
 | --- | --- | --- |
 | `test/tools.test.ts` | 23 | Every tool against recorded Lichess responses, including each "not available" path: unanalysed game, cloud-eval miss, explorer without a token, refused token (recorded 401 page), tablebase with more than 7 pieces, unknown player / game / puzzle |
 | `test/chess.test.ts` | 17 | FEN validation (URL form, missing counters, 5 kinds of invalid FEN), UCI to SAN (captures, promotion, both castling forms, illegal moves), cloud-eval line conversion stopping at the first illegal move, move-list parsing, score formatting, win-chance curve |
-| `test/http.test.ts` | 16 | SDK client over a real socket, stateless JSON responses, CORS and allow list, 405/406/400/413 handling, 504 on slow upstream, per-IP rate limit and daily cap, `X-Forwarded-For` trust, `/health`, playground CSP, piece SVG route |
+| `test/http.test.ts` | 17 | SDK client over a real socket, stateless JSON responses, CORS and allow list, 405/406/400/413 handling, 504 on slow upstream, per-IP rate limit and daily cap, `X-Forwarded-For` trust, `/health`, playground CSP, piece SVG route |
 | `test/server.test.ts` | 15 | Full MCP protocol in memory: 9 tools listed with read-only annotations and output schemas, 10 tool calls validated against their output schemas by the SDK client, schema rejection before any request, error mapping |
 | `test/lichess.test.ts` | 11 | User-Agent and token header, 404 handling, 5xx retry with backoff, 60-second cooldown after a 429 (per host), 401 hint, timeout, bad timeout config, cache, one request at a time per host, NDJSON reading |
 | `test/rateLimit.test.ts` | 7 | Token bucket refill, per-key isolation, memory bound, daily cap reset at UTC midnight, env parsing |

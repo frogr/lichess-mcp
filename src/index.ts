@@ -11,10 +11,10 @@ async function main() {
   const server = createServer(client);
   await server.connect(new StdioServerTransport());
   // stdout is the MCP channel; logs go to stderr.
-  console.error(`lichess-mcp running on stdio${client.hasToken ? " (LICHESS_TOKEN set)" : ""}`);
+  console.error(`lichess-coach-mcp running on stdio${client.hasToken ? " (LICHESS_TOKEN set)" : ""}`);
 }
 
 main().catch((err) => {
-  console.error("lichess-mcp failed to start:", err);
+  console.error("lichess-coach-mcp failed to start:", err);
   process.exit(1);
 });

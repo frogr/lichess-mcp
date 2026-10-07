@@ -1,4 +1,4 @@
-# Remote (HTTP) server image. docker build -t lichess-mcp . && docker run -p 3000:3000 lichess-mcp
+# Remote (HTTP) server image. docker build -t lichess-coach-mcp . && docker run -p 3000:3000 lichess-coach-mcp
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./

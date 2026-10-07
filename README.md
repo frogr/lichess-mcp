@@ -6,6 +6,8 @@ It is built around one rule: **the model never does the chess.** Every evaluatio
 
 No API key needed. Runs locally over stdio or as a remote server with a web playground.
 
+The code is MIT. The piece images in `public/pieces/` are the cburnett set by Colin M.L. Burnett, copied from Lichess's lila repo and licensed GPLv2+ (see [`public/pieces/LICENSE`](public/pieces/LICENSE)).
+
 ![Game review in the playground](docs/screenshots/review.png)
 
 ## Why the model never does the chess
@@ -160,7 +162,7 @@ Hint: Game ids are the 8 characters after lichess.org/ in the game URL. Use rece
 **Docker:**
 
 ```bash
-docker build -t lichess-mcp . && docker run -p 3000:3000 lichess-mcp
+docker build -t lichess-coach-mcp . && docker run -p 3000:3000 lichess-coach-mcp
 ```
 
 **Any Node host:** `npm ci && npm run build && npm start`. Set `TRUST_PROXY` to the number of proxies in front of the app so rate limiting sees the real client IP.
