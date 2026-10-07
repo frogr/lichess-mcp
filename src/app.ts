@@ -5,6 +5,7 @@
  * Routes:
  *   GET  /          web playground (public/index.html)
  *   GET  /pieces/*  chess piece SVGs for the playground board
+ *   GET  /austn-kit.css, /fonts/recursive-latin.woff2   the playground's stylesheet and font
  *   GET  /health    liveness + config summary, never calls Lichess
  *   POST /mcp       MCP Streamable HTTP, stateless, JSON responses
  *   OPTIONS *       CORS preflight
@@ -72,6 +73,12 @@ const PIECES = new Map(
     .filter((f) => /^[wb][KQRBNP]\.svg$/.test(f))
     .map((f) => [`/pieces/${f}`, readFileSync(new URL(`pieces/${f}`, PUBLIC_DIR))]),
 );
+
+/** The playground's stylesheet (austn.net's design system) and its font, read once at startup. Only these two paths are served. */
+const PLAYGROUND_ASSETS = new Map<string, { body: Buffer; type: string }>([
+  ["/austn-kit.css", { body: readFileSync(new URL("austn-kit.css", PUBLIC_DIR)), type: "text/css; charset=utf-8" }],
+  ["/fonts/recursive-latin.woff2", { body: readFileSync(new URL("fonts/recursive-latin.woff2", PUBLIC_DIR)), type: "font/woff2" }],
+]);
 
 const CORS_ALLOW_HEADERS = "Content-Type, Accept, Authorization, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID";
 const CORS_EXPOSE_HEADERS = "Mcp-Session-Id, Mcp-Protocol-Version, Retry-After, RateLimit-Remaining";
@@ -201,6 +208,15 @@ export function createApp(opts: AppOptions): Handler {
         return new Response(req.method === "HEAD" ? null : piece, {
           status: 200,
           headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff" },
+        });
+      }
+
+      const asset = PLAYGROUND_ASSETS.get(url.pathname);
+      if (asset) {
+        if (req.method !== "GET" && req.method !== "HEAD") return text(405, "Method not allowed");
+        return new Response(req.method === "HEAD" ? null : new Uint8Array(asset.body), {
+          status: 200,
+          headers: { "Content-Type": asset.type, "Cache-Control": "public, max-age=86400", "X-Content-Type-Options": "nosniff" },
         });
       }
 

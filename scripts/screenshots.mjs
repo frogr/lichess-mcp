@@ -31,6 +31,14 @@ async function waitForHealth() {
   throw new Error("server did not start");
 }
 
+/** Pick a question in "Ask it" and wait for every call in the chat to finish. */
+async function askExample(page, index) {
+  await page.locator("#ask-chips .chip").nth(index).click();
+  await page.waitForFunction(() => !document.querySelector("#ask-chat .pending"), null, { timeout: 60_000 });
+  await scrollTo(page, "#ask");
+  await page.waitForTimeout(400);
+}
+
 const scrollTo = (page, sel) => page.locator(sel).evaluate((el) => el.scrollIntoView({ block: "start" }));
 
 const browser = await chromium.launch({ executablePath });
@@ -43,6 +51,12 @@ try {
   await desk.waitForSelector("#puzzle-body svg.board image");
   await desk.screenshot({ path: `${out}playground.png` });
 
+  // Ask it: the two-call review, then the puzzle that keeps its answer hidden.
+  await askExample(desk, 1);
+  await desk.locator("#ask").screenshot({ path: `${out}ask-review.png` });
+  await askExample(desk, 4);
+  await desk.locator("#ask").screenshot({ path: `${out}ask-puzzle.png` });
+
   // Review: load the player, wait for the first analysed game's mistakes.
   await desk.fill("#username", username);
   await desk.click("#lookup-btn");
@@ -52,10 +66,10 @@ try {
   await desk.screenshot({ path: `${out}review.png` });
 
   // A game with no analysis shows the honest "not available" state.
-  const unanalysed = desk.locator(".game", { has: desk.locator(".pill:not(.ok)") }).first();
+  const unanalysed = desk.locator("#games-panel .game", { has: desk.locator(".pill:not(.pill--good)") }).first();
   if (await unanalysed.count()) {
     await unanalysed.click();
-    await desk.waitForSelector("#detail .notice", { timeout: 30_000 });
+    await desk.waitForSelector("#detail .note", { timeout: 30_000 });
     await scrollTo(desk, "#review");
     await desk.screenshot({ path: `${out}review-not-analysed.png` });
   }
@@ -71,7 +85,7 @@ try {
   await desk.screenshot({ path: `${out}puzzle-solution.png` });
 
   await scrollTo(desk, "#connect");
-  await desk.locator("#client-tabs .tab", { hasText: "Claude Desktop" }).click();
+  await desk.locator("#client-tabs .chip", { hasText: "Claude Desktop" }).click();
   await desk.waitForTimeout(200);
   await desk.screenshot({ path: `${out}connect.png` });
 
