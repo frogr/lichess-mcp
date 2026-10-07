@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lichess MCP</title>
+<meta name="description" content="A remote MCP server that gives Claude, Cursor and other AI assistants your Lichess games, engine-flagged mistakes, cloud evals, the endgame tablebase and puzzles. The model never does the chess itself.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c110e'/%3E%3Cpath d='M9 9h5v5h5v5h5' stroke='%2346d483' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='24' r='2.6' fill='%2346d483'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0f0d;
+    --surface: #121815;
+    --surface-2: #18201b;
+    --border: #233029;
+    --text: #e4ebe6;
+    --muted: #8d9c93;
+    --faint: #5f6e65;
+    --accent: #46d483;
+    --accent-ink: #062113;
+    --accent-soft: rgba(70, 212, 131, 0.12);
+    --warn: #e2b44c;
+    --bad: #ec7a6b;
+    --sq-light: #c9d2c3;
+    --sq-dark: #6e8b74;
+    --radius: 10px;
+    --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 var(--font); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre, .mono { font-family: var(--mono); font-size: 0.86em; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  header.top { border-bottom: 1px solid var(--border); }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 600; letter-spacing: -0.01em; }
+  .brand:hover { text-decoration: none; }
+  nav.links { display: flex; gap: 20px; font-size: 14px; }
+  nav.links a { color: var(--muted); }
+  nav.links a:hover { color: var(--text); text-decoration: none; }
+
+  .hero { padding-top: 64px; padding-bottom: 44px; }
+  .eyebrow { color: var(--accent); font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 14px; }
+  h1 { font-size: clamp(32px, 5.2vw, 52px); line-height: 1.08; letter-spacing: -0.025em; margin: 0 0 18px; max-width: 17ch; }
+  .lede { color: var(--muted); font-size: 18px; max-width: 64ch; margin: 0 0 28px; }
+  .lede strong { color: var(--text); font-weight: 500; }
+  .endpoint { display: flex; align-items: stretch; max-width: 560px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+  .endpoint .label { padding: 12px 14px; color: var(--muted); font-size: 13px; border-right: 1px solid var(--border); white-space: nowrap; display: flex; align-items: center; }
+  .endpoint code { flex: 1; padding: 12px 14px; color: var(--text); overflow-x: auto; white-space: nowrap; display: flex; align-items: center; }
+  .endpoint button { border: 0; border-left: 1px solid var(--border); border-radius: 0; padding: 0 16px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 22px; color: var(--muted); font-size: 14px; }
+  .stats b { color: var(--text); font-weight: 600; }
+
+  section { padding: 44px 0; border-top: 1px solid var(--border); }
+  h2 { font-size: 22px; letter-spacing: -0.01em; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 0; }
+  .sub { color: var(--muted); margin: 0 0 24px; max-width: 70ch; }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  input { font: inherit; font-size: 15px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .btn { font: inherit; font-weight: 600; font-size: 15px; color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer; white-space: nowrap; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:disabled { opacity: 0.6; cursor: progress; }
+  .btn-ghost { font: inherit; font-size: 13px; color: var(--muted); background: transparent; border: 1px solid var(--border); border-radius: 7px; padding: 6px 11px; cursor: pointer; }
+  .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--faint); }
+  .btn-ghost:disabled { opacity: 0.45; cursor: default; }
+  .btn-ghost.on { color: var(--accent); border-color: var(--accent); }
+
+  form.lookup { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+  form.lookup input { flex: 1 1 220px; max-width: 320px; }
+  .try { color: var(--faint); font-size: 13px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .chip { font: inherit; font-size: 13px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+  .chip:hover { color: var(--text); border-color: var(--faint); }
+
+  .review { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .player { padding: 16px 18px; border-bottom: 1px solid var(--border); }
+  .player .name { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .player .name a { color: var(--text); font-weight: 600; font-size: 17px; }
+  .title { color: var(--warn); font-weight: 700; font-size: 13px; }
+  .ratings { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .rating { font-size: 12.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+  .rating b { color: var(--text); font-weight: 600; }
+  ul.games { list-style: none; margin: 0; padding: 0; max-height: 640px; overflow-y: auto; }
+  .game { width: 100%; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-bottom: 1px solid var(--border); padding: 12px 18px; cursor: pointer; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
+  li:last-child .game { border-bottom: 0; }
+  .game:hover, .game:focus-visible { background: var(--surface-2); outline: none; }
+  .game[aria-current="true"] { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent); }
+  .res { grid-row: span 2; width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; font-weight: 700; font-size: 13px; border: 2px solid currentColor; }
+  .res.win { color: var(--accent); }
+  .res.loss { color: var(--bad); }
+  .res.draw, .res.ongoing { color: var(--muted); }
+  .game .opp { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .game .meta { grid-column: 2 / 4; color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pill { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--faint); white-space: nowrap; }
+  .pill.ok { color: var(--accent); border-color: rgba(70, 212, 131, 0.35); }
+
+  .detail { padding: 18px; min-height: 420px; }
+  .detail-grid { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .board-wrap { width: 100%; max-width: 420px; }
+  svg.board { display: block; width: 100%; height: auto; border-radius: 6px; overflow: hidden; }
+  .board .sq-l { fill: var(--sq-light); }
+  .board .sq-d { fill: var(--sq-dark); }
+  .board .hl-last { fill: rgba(226, 180, 76, 0.5); }
+  .board .hl-bad { fill: rgba(236, 122, 107, 0.6); }
+  .board .hl-best { fill: rgba(70, 212, 131, 0.55); }
+  .board .coord { font: 600 2.6px var(--font); }
+  .board-caption { color: var(--muted); font-size: 13px; margin-top: 8px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .legend { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  .summary { display: flex; gap: 8px 22px; flex-wrap: wrap; font-size: 14px; color: var(--muted); margin: 6px 0 14px; }
+  .summary b { color: var(--text); font-variant-numeric: tabular-nums; }
+  ol.mistakes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .mistake { width: 100%; text-align: left; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; cursor: pointer; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "mv j drop" "best best best"; gap: 2px 10px; align-items: baseline; }
+  .mistake:hover, .mistake:focus-visible { border-color: var(--faint); outline: none; }
+  .mistake[aria-current="true"] { border-color: var(--accent); background: var(--surface-2); }
+  .mistake .mv { grid-area: mv; font-family: var(--mono); font-size: 14px; font-weight: 600; }
+  .mistake .j { grid-area: j; }
+  .mistake .drop { grid-area: drop; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mistake .best { grid-area: best; color: var(--muted); font-size: 13px; }
+  .j { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  .j.blunder { color: var(--bad); }
+  .j.mistake { color: var(--warn); }
+  .j.inaccuracy { color: var(--muted); }
+  .focus { margin-top: 14px; padding: 12px 14px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); font-size: 14px; }
+  .focus p { margin: 0 0 6px; }
+  .focus p:last-child { margin: 0; }
+  .line { font-family: var(--mono); font-size: 13px; color: var(--muted); word-break: break-word; }
+  .empty { color: var(--faint); padding: 48px 8px; text-align: center; }
+  .notice { color: var(--muted); background: var(--bg); border: 1px dashed var(--border); border-radius: 8px; padding: 16px; font-size: 14px; }
+  .notice b { color: var(--text); }
+  .error { color: var(--bad); white-space: pre-wrap; font-family: var(--mono); font-size: 13px; background: rgba(236, 122, 107, 0.08); border: 1px solid rgba(236, 122, 107, 0.3); border-radius: 8px; padding: 12px 14px; margin: 0; }
+  .loading { color: var(--muted); padding: 24px 18px; font-size: 14px; }
+
+  .puzzle { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .puzzle .info { display: flex; flex-direction: column; gap: 14px; }
+  .tomove { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .tomove small { display: block; color: var(--muted); font-size: 14px; font-weight: 400; letter-spacing: 0; margin-top: 2px; }
+  .facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 14px; margin: 0; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; }
+  .themes { display: flex; flex-wrap: wrap; gap: 6px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .actions > .btn-ghost { font-size: 15px; padding: 10px 16px; border-radius: 8px; }
+  .solution { display: flex; flex-wrap: wrap; gap: 4px; font-family: var(--mono); font-size: 14px; }
+  .solution button { font: inherit; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 2px 6px; cursor: pointer; }
+  .solution button.solver { color: var(--text); font-weight: 600; }
+  .solution button[aria-current="true"] { border-color: var(--accent); color: var(--accent); }
+  .stepper { display: flex; gap: 6px; align-items: center; }
+
+  .tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .tool-card { padding: 14px 16px; }
+  .tool-card code { color: var(--accent); font-size: 14px; }
+  .tool-card p { color: var(--muted); font-size: 13.5px; margin: 6px 0 0; }
+  .src { font-size: 11.5px; color: var(--faint); margin-top: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .why { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .why .panel { padding: 16px 18px; }
+  .why p { color: var(--muted); font-size: 14px; margin: 6px 0 0; }
+
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tab { font: inherit; font-size: 14px; color: var(--muted); background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .connect { display: flex; flex-direction: column; gap: 14px; max-width: 760px; }
+  .snippet-note { color: var(--muted); font-size: 14px; margin: 0 0 6px; }
+  .snippet { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .snippet pre { margin: 0; padding: 14px 80px 14px 16px; overflow-x: auto; color: #cfe3d6; font-size: 13px; line-height: 1.5; }
+  .snippet .copy { position: absolute; top: 9px; right: 9px; background: var(--surface); }
+
+  footer { border-top: 1px solid var(--border); padding: 28px 0 40px; color: var(--faint); font-size: 13px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; }
+
+  @media (max-width: 900px) {
+    .review, .puzzle { grid-template-columns: minmax(0, 1fr); }
+    ul.games { max-height: 360px; }
+  }
+  @media (max-width: 640px) {
+    .wrap { padding: 0 16px; }
+    .hero { padding-top: 36px; padding-bottom: 28px; }
+    .lede { font-size: 16px; }
+    nav.links { gap: 14px; }
+    .hide-sm { display: none; }
+    section { padding: 32px 0; }
+    .detail { padding: 14px; }
+    .detail-grid { grid-template-columns: minmax(0, 1fr); }
+    .board-wrap { max-width: none; }
+    .game { padding: 11px 14px; }
+    .player { padding: 14px; }
+    .endpoint .label { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#18201b"/><path d="M9 9h5v5h5v5h5" stroke="#46d483" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="24" r="2.6" fill="#46d483"/></svg>
+      lichess-mcp
+    </a>
+    <nav class="links">
+      <a href="#review">Review</a>
+      <a href="#puzzle">Puzzle</a>
+      <a href="#connect">Connect</a>
+      <a class="hide-sm" href="https://github.com/frogr/lichess-mcp">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <p class="eyebrow">Remote MCP server for Lichess</p>
+    <h1>A chess coach that never makes up the chess</h1>
+    <p class="lede">
+      <strong>MCP</strong> (Model Context Protocol) lets AI apps like Claude and Cursor call outside tools.
+      This server gives them <a href="https://lichess.org">Lichess</a>, the free open-source chess site: your games, the mistakes its engine flagged, cloud evaluations, perfect endgame play and daily puzzles.
+      <strong>The model explains. Lichess does the chess.</strong> No API key needed.
+    </p>
+    <div class="endpoint">
+      <span class="label">Endpoint</span>
+      <code id="endpoint-url">/mcp</code>
+      <button class="btn-ghost" id="copy-endpoint" type="button">Copy</button>
+    </div>
+    <div class="stats">
+      <span><b>9</b> read-only tools</span>
+      <span>Streamable HTTP, stateless</span>
+      <span id="health-stat">Checking health...</span>
+    </div>
+  </div>
+
+  <section id="review">
+    <div class="wrap">
+      <h2>Review your games</h2>
+      <p class="sub">Enter a Lichess username. Pick a game to see the moves Lichess's engine flagged, with the move it preferred. Games nobody asked Lichess to analyse say so; nothing is guessed.</p>
+      <form class="lookup" id="lookup" autocomplete="off">
+        <input id="username" name="username" placeholder="Lichess username" aria-label="Lichess username" maxlength="30" spellcheck="false" autocapitalize="off">
+        <button class="btn" id="lookup-btn" type="submit">Load games</button>
+        <span class="try">Try <button type="button" class="chip" data-user="thibault">thibault</button><button type="button" class="chip" data-user="DrNykterstein">DrNykterstein</button></span>
+      </form>
+      <div class="review">
+        <div class="panel" id="games-panel"><div class="empty">Recent games show up here.</div></div>
+        <div class="panel detail" id="detail" aria-live="polite"><div class="empty">Pick a game to see its mistakes.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="puzzle">
+    <div class="wrap">
+      <h2>Puzzle of the day</h2>
+      <p class="sub">Straight from <code>puzzle_of_the_day</code>. The solution stays hidden until you ask for it, which is how a coach would use it.</p>
+      <div class="puzzle" id="puzzle-body"><div class="loading">Loading today's puzzle...</div></div>
+    </div>
+  </section>
+
+  <section id="tools">
+    <div class="wrap">
+      <h2>What your assistant gets</h2>
+      <p class="sub">Nine tools, all read-only, each with an input and output schema. Every number in their answers comes from one of three places, named on each card.</p>
+      <div class="tools" id="tool-list"></div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap">
+      <h2>Why the model never does the chess</h2>
+      <p class="sub">Language models are fluent about chess and often wrong about it. They suggest illegal moves, miss one-move tactics, and give confident evaluations that no engine would agree with. A coach that does that teaches bad habits. So this server draws a hard line.</p>
+      <div class="why">
+        <div class="panel"><h3>Evaluations come from engines</h3><p>Per-move evals and mistake labels come from Lichess's server analysis. Position evals come from the Lichess cloud cache. Endgames with 7 pieces or fewer come from the tablebase, which is exact.</p></div>
+        <div class="panel"><h3>Missing data says "not available"</h3><p>If a game was never analysed or a position isn't in the cloud cache, the tool says so and tells the model not to estimate. The model can then send you to the Lichess analysis board.</p></div>
+        <div class="panel"><h3>Code only does bookkeeping</h3><p>chess.js checks that FENs are valid, replays games and turns engine notation (e2e4) into readable moves (e4). It never judges a position.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="connect">
+    <div class="wrap">
+      <h2>Connect your client</h2>
+      <p class="sub">Point any MCP client at the endpoint above, or run it locally with npx. Pick yours:</p>
+      <div class="tabs" role="tablist" id="client-tabs"></div>
+      <div class="connect" id="client-body"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Data from <a href="https://lichess.org/api">the Lichess API</a>. Not affiliated with Lichess. Pieces: cburnett set.</span>
+    <span><a href="https://github.com/frogr/lichess-mcp">Source (MIT)</a> &middot; Need an MCP server for your own API? <a href="https://austn.net">austn.net</a></span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (sel) => document.querySelector(sel);
+  const ENDPOINT = location.origin + "/mcp";
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  /** Tiny DOM builder. Strings become text nodes, so upstream data is never parsed as HTML. */
+  function h(tag, attrs, ...children) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k === "class") el.className = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : v);
+    }
+    for (const c of children.flat()) {
+      if (c == null || c === false) continue;
+      el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return el;
+  }
+  function s(tag, attrs) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+    return el;
+  }
+
+  // ---------- MCP over HTTP ----------
+  let rpcId = 0;
+  async function rpc(method, params) {
+    const res = await fetch("/mcp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),
+    });
+    let body;
+    try { body = await res.json(); } catch { throw new Error(`HTTP ${res.status} from /mcp`); }
+    if (body.error) throw new Error(body.error.message || `HTTP ${res.status}`);
+    return body.result;
+  }
+  /** Call a tool and return its structured result, or throw with the tool's own error text. */
+  async function call(name, args) {
+    const r = await rpc("tools/call", { name, arguments: args });
+    if (r.isError) throw new Error(r.content?.[0]?.text || "Tool error");
+    return r.structuredContent;
+  }
+
+  // ---------- board ----------
+  const FILES = "abcdefgh";
+  function parseFen(fen) {
+    const rows = fen.split(" ")[0].split("/");
+    const board = {};
+    rows.forEach((row, i) => {
+      let f = 0;
+      for (const ch of row) {
+        if (/\d/.test(ch)) { f += Number(ch); continue; }
+        board[FILES[f] + (8 - i)] = (ch === ch.toUpperCase() ? "w" : "b") + ch.toUpperCase();
+        f++;
+      }
+    });
+    return board;
+  }
+  /**
+   * Display-only move applier for stepping through a known-legal Lichess line.
+   * Handles castling (both UCI forms), en passant and promotion. It never decides legality.
+   */
+  function applyUci(board, uci) {
+    const b = { ...board };
+    const from = uci.slice(0, 2), to = uci.slice(2, 4), promo = uci[4];
+    const piece = b[from];
+    if (!piece) return b;
+    const target = b[to];
+    const df = FILES.indexOf(to[0]) - FILES.indexOf(from[0]);
+    if (piece[1] === "K" && (Math.abs(df) === 2 || (target && target === piece[0] + "R"))) {
+      const kingside = df > 0;
+      const rank = from[1];
+      const rookFrom = target === piece[0] + "R" ? to : (kingside ? "h" : "a") + rank;
+      delete b[from]; delete b[rookFrom];
+      b[(kingside ? "g" : "c") + rank] = piece;
+      b[(kingside ? "f" : "d") + rank] = piece[0] + "R";
+      return b;
+    }
+    if (piece[1] === "P" && df !== 0 && !target) delete b[to[0] + from[1]];
+    delete b[from];
+    b[to] = promo ? piece[0] + promo.toUpperCase() : piece;
+    return b;
+  }
+  function sqXY(sq, flip) {
+    const f = FILES.indexOf(sq[0]), r = Number(sq[1]);
+    return flip ? { x: 7 - f, y: r - 1 } : { x: f, y: 8 - r };
+  }
+  /**
+   * Render a board into an SVG element (10 units per square).
+   * opts: { flip, highlights: [{ sq, cls }], arrows: [{ uci, color }] }
+   */
+  function drawBoard(board, opts = {}) {
+    const flip = !!opts.flip;
+    const svg = s("svg", { viewBox: "0 0 80 80", class: "board", role: "img" });
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+      svg.append(s("rect", { x: x * 10, y: y * 10, width: 10, height: 10, class: (x + y) % 2 ? "sq-d" : "sq-l" }));
+    }
+    for (const hl of opts.highlights || []) {
+      const p = sqXY(hl.sq, flip);
+      svg.append(s("rect", { x: p.x * 10, y: p.y * 10, width: 10, height: 10, class: hl.cls }));
+    }
+    for (let i = 0; i < 8; i++) {
+      const file = flip ? FILES[7 - i] : FILES[i];
+      const rank = flip ? i + 1 : 8 - i;
+      const fileLbl = s("text", { x: i * 10 + 9.2, y: 79.2, "text-anchor": "end", class: "coord", style: `fill: var(${i % 2 ? "--sq-dark" : "--sq-light"})` });
+      fileLbl.textContent = file;
+      const rankLbl = s("text", { x: 0.7, y: i * 10 + 3, class: "coord", style: `fill: var(${i % 2 ? "--sq-light" : "--sq-dark"})` });
+      rankLbl.textContent = rank;
+      svg.append(fileLbl, rankLbl);
+    }
+    for (const [sq, pc] of Object.entries(board)) {
+      const p = sqXY(sq, flip);
+      svg.append(s("image", { href: `/pieces/${pc}.svg`, x: p.x * 10, y: p.y * 10, width: 10, height: 10 }));
+    }
+    const defs = s("defs");
+    svg.prepend(defs);
+    (opts.arrows || []).forEach((a, i) => {
+      const id = `ah${i}-${Math.random().toString(36).slice(2, 7)}`;
+      const marker = s("marker", { id, viewBox: "0 0 10 10", refX: 5, refY: 5, markerWidth: 3.2, markerHeight: 3.2, orient: "auto-start-reverse" });
+      marker.append(s("path", { d: "M0,0 L10,5 L0,10 z", fill: a.color }));
+      defs.append(marker);
+      const from = sqXY(a.uci.slice(0, 2), flip), to = sqXY(a.uci.slice(2, 4), flip);
+      const x1 = from.x * 10 + 5, y1 = from.y * 10 + 5, x2 = to.x * 10 + 5, y2 = to.y * 10 + 5;
+      const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+      const trim = 3.4; // stop short so the head sits inside the target square
+      svg.append(s("line", { x1, y1, x2: x2 - ((x2 - x1) / len) * trim, y2: y2 - ((y2 - y1) / len) * trim, stroke: a.color, "stroke-width": 1.7, "stroke-linecap": "round", opacity: 0.88, "marker-end": `url(#${id})` }));
+    });
+    return svg;
+  }
+  const RED = "#e0604f", GREEN = "#2fbf6f";
+
+  // ---------- formatting ----------
+  const RES_LETTER = { win: "W", loss: "L", draw: "D", ongoing: "-" };
+  function ago(iso) {
+    if (!iso) return "";
+    const d = (Date.now() - Date.parse(iso)) / 1000;
+    if (d < 3600) return `${Math.max(1, Math.round(d / 60))}m ago`;
+    if (d < 86400) return `${Math.round(d / 3600)}h ago`;
+    if (d < 86400 * 30) return `${Math.round(d / 86400)}d ago`;
+    return iso.slice(0, 10);
+  }
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  const pct = (n) => (n == null ? "?" : `${Math.round(n)}%`);
+
+  // ---------- review ----------
+  let current = { username: null, games: [], selected: null };
+
+  async function loadPlayer(username) {
+    username = username.trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]{1,29}$/.test(username)) {
+      $("#games-panel").replaceChildren(h("div", { class: "loading" }, h("p", { class: "error" }, "Lichess usernames are 2-30 letters, digits, _ or -.")));
+      return;
+    }
+    $("#username").value = username;
+    $("#lookup-btn").disabled = true;
+    $("#games-panel").replaceChildren(h("div", { class: "loading" }, `Loading ${username}...`));
+    $("#detail").replaceChildren(h("div", { class: "empty" }, "Pick a game to see its mistakes."));
+    try {
+      const player = await call("get_player", { username });
+      const games = await call("recent_games", { username, max: 12 });
+      current = { username: player.username, games: games.games, selected: null };
+      renderGames(player, games);
+      const firstAnalysed = games.games.find((g) => g.has_analysis);
+      if (firstAnalysed) selectGame(firstAnalysed);
+    } catch (err) {
+      $("#games-panel").replaceChildren(h("div", { class: "loading" }, h("p", { class: "error" }, err.message)));
+    } finally {
+      $("#lookup-btn").disabled = false;
+    }
+  }
+
+  function renderGames(player, games) {
+    const top = player.ratings.filter((r) => !["puzzle", "storm", "racer", "streak"].includes(r.perf)).slice(0, 4);
+    const puzzle = player.ratings.find((r) => r.perf === "puzzle");
+    const head = h("div", { class: "player" },
+      h("div", { class: "name" },
+        player.title ? h("span", { class: "title" }, player.title) : null,
+        h("a", { href: player.url, target: "_blank", rel: "noopener" }, player.username),
+        player.account_status !== "active" ? h("span", { class: "pill" }, player.account_status.replace("_", " ")) : null),
+      h("div", { class: "ratings" },
+        top.map((r) => h("span", { class: "rating" }, `${cap(r.perf)} `, h("b", {}, `${r.rating}${r.provisional ? "?" : ""}`))),
+        puzzle ? h("span", { class: "rating" }, "Puzzles ", h("b", {}, String(puzzle.rating))) : null));
+    if (!games.games.length) {
+      $("#games-panel").replaceChildren(head, h("div", { class: "empty" }, games.note || "No finished games."));
+      return;
+    }
+    const list = h("ul", { class: "games" }, games.games.map((g) =>
+      h("li", {}, h("button", { type: "button", class: "game", "data-id": g.id, onclick: () => selectGame(g) },
+        h("span", { class: `res ${g.result}`, title: g.result }, RES_LETTER[g.result]),
+        h("span", { class: "opp" }, `vs ${g.opponent.title ? g.opponent.title + " " : ""}${g.opponent.name}${g.opponent.rating ? ` (${g.opponent.rating})` : ""}`),
+        g.has_analysis ? h("span", { class: "pill ok" }, g.accuracy ? `${g.accuracy.player}% acc` : "analysed") : h("span", { class: "pill" }, "no analysis"),
+        h("span", { class: "meta" }, [cap(g.speed), g.time_control, g.opening?.name, ago(g.date)].filter(Boolean).join(" · "))))));
+    $("#games-panel").replaceChildren(head, list);
+  }
+
+  async function selectGame(g) {
+    current.selected = g.id;
+    for (const b of document.querySelectorAll(".game")) b.setAttribute("aria-current", String(b.dataset.id === g.id));
+    const detail = $("#detail");
+    detail.replaceChildren(h("div", { class: "loading" }, "Asking find_mistakes..."));
+    try {
+      const m = await call("find_mistakes", { game_id: g.id, for_player: current.username, min_severity: "inaccuracy" });
+      if (current.selected !== g.id) return;
+      renderMistakes(g, m);
+    } catch (err) {
+      if (current.selected === g.id) detail.replaceChildren(h("p", { class: "error" }, err.message));
+    }
+  }
+
+  function renderMistakes(g, m) {
+    const heading = h("div", {},
+      h("h3", {}, `${cap(g.result === "ongoing" ? "ongoing" : g.result)} as ${m.player.color} vs ${g.opponent.name}`),
+      h("div", { class: "summary" },
+        h("span", {}, [cap(g.speed), g.time_control, g.opening?.name].filter(Boolean).join(" · ")),
+        h("a", { href: m.url, target: "_blank", rel: "noopener" }, "Open on Lichess")));
+    if (!m.analysis_available) {
+      $("#detail").replaceChildren(heading, h("div", { class: "notice" },
+        h("p", { style: "margin:0 0 8px" }, h("b", {}, "Not available. "), "Lichess has no computer analysis for this game, so there is nothing to show and nothing is guessed."),
+        h("p", { style: "margin:0" }, "Anyone signed in can request a free analysis on the ", h("a", { href: `https://lichess.org/${m.game_id}`, target: "_blank", rel: "noopener" }, "game page"), ", then load it again.")));
+      return;
+    }
+    const sm = m.summary || {};
+    const summary = h("div", { class: "summary" },
+      sm.accuracy != null ? h("span", {}, "Accuracy ", h("b", {}, `${sm.accuracy}%`)) : null,
+      h("span", {}, "Inaccuracies ", h("b", {}, String(sm.inaccuracies ?? 0))),
+      h("span", {}, "Mistakes ", h("b", {}, String(sm.mistakes ?? 0))),
+      h("span", {}, "Blunders ", h("b", {}, String(sm.blunders ?? 0))));
+    if (!m.mistakes.length) {
+      $("#detail").replaceChildren(heading, summary, h("div", { class: "notice" }, m.message));
+      return;
+    }
+    const boardBox = h("div", { class: "board-wrap" });
+    const focus = h("div", { class: "focus" });
+    const items = m.mistakes.map((x, i) => h("li", {}, h("button", { type: "button", class: "mistake", "data-i": i, onclick: () => show(i) },
+      h("span", { class: "mv" }, x.move),
+      h("span", { class: `j ${x.judgment}` }, x.judgment),
+      x.win_chance_lost != null ? h("span", { class: "drop", title: "Winning chances lost" }, `-${Math.round(x.win_chance_lost)}%`) : null,
+      x.best.san ? h("span", { class: "best" }, `Lichess preferred ${x.best.san}`) : null)));
+    const list = h("ol", { class: "mistakes" }, items);
+    function show(i) {
+      const x = m.mistakes[i];
+      for (const b of list.querySelectorAll(".mistake")) b.setAttribute("aria-current", String(Number(b.dataset.i) === i));
+      const arrows = [];
+      const highlights = [];
+      if (x.played.uci) { arrows.push({ uci: x.played.uci, color: RED }); highlights.push({ sq: x.played.uci.slice(2, 4), cls: "hl-bad" }); }
+      if (x.best.uci) arrows.push({ uci: x.best.uci, color: GREEN });
+      boardBox.replaceChildren(
+        x.fen_before ? drawBoard(parseFen(x.fen_before), { flip: m.player.color === "black", arrows, highlights }) : h("div", { class: "notice" }, "Board not available for this variant."),
+        h("div", { class: "board-caption" },
+          h("span", { class: "legend" }, h("i", { class: "swatch", style: `background:${RED}` }), `Played ${x.played.san}`),
+          x.best.san ? h("span", { class: "legend" }, h("i", { class: "swatch", style: `background:${GREEN}` }), `Lichess: ${x.best.san}`) : null));
+      boardBox.querySelector("svg")?.setAttribute("aria-label", `Position before ${x.move}. FEN ${x.fen_before}`);
+      focus.replaceChildren(
+        h("p", {}, h("b", {}, x.move), " ", h("span", { class: `j ${x.judgment}` }, x.judgment), x.eval_before && x.eval_after ? `  Eval ${x.eval_before.display} → ${x.eval_after.display}` : ""),
+        x.win_chance_before != null ? h("p", {}, `Winning chances ${pct(x.win_chance_before)} → ${pct(x.win_chance_after)}`) : null,
+        x.best_line.length ? h("p", { class: "line" }, `Best line: ${x.best_line.join(" ")}`) : null);
+    }
+    const right = h("div", {}, summary, list, focus);
+    $("#detail").replaceChildren(heading, h("div", { class: "detail-grid" }, boardBox, right));
+    show(0);
+  }
+
+  $("#lookup").addEventListener("submit", (e) => { e.preventDefault(); loadPlayer($("#username").value); });
+  for (const c of document.querySelectorAll("[data-user]")) c.addEventListener("click", () => loadPlayer(c.dataset.user));
+
+  // ---------- puzzle ----------
+  async function loadPuzzle() {
+    const box = $("#puzzle-body");
+    try {
+      const p = await call("puzzle_of_the_day", { reveal_solution: false });
+      renderPuzzle(p, null);
+    } catch (err) {
+      box.replaceChildren(h("p", { class: "error" }, err.message));
+    }
+  }
+
+  function renderPuzzle(p, solution) {
+    const box = $("#puzzle-body");
+    const flip = p.solver_color === "black";
+    const start = parseFen(p.fen);
+    const positions = [start];
+    if (solution) for (const u of solution.uci) positions.push(applyUci(positions.at(-1), u));
+    let step = 0;
+    const boardBox = h("div", { class: "board-wrap" });
+    const solBox = h("div", { class: "solution" });
+    const prev = h("button", { type: "button", class: "btn-ghost", "aria-label": "Previous move", onclick: () => go(step - 1) }, "‹ Back");
+    const next = h("button", { type: "button", class: "btn-ghost", "aria-label": "Next move", onclick: () => go(step + 1) }, "Next ›");
+
+    function go(n) {
+      step = Math.max(0, Math.min(n, positions.length - 1));
+      const last = step === 0 ? p.last_move?.uci : solution.uci[step - 1];
+      const highlights = last ? [{ sq: last.slice(0, 2), cls: "hl-last" }, { sq: last.slice(2, 4), cls: "hl-last" }] : [];
+      const svg = drawBoard(positions[step], { flip, highlights });
+      svg.setAttribute("aria-label", step === 0 ? `Puzzle position, ${p.solver_color} to move. FEN ${p.fen}` : `After ${solution.san[step - 1]}`);
+      boardBox.replaceChildren(svg);
+      if (solution) {
+        for (const b of solBox.querySelectorAll("button")) b.setAttribute("aria-current", String(Number(b.dataset.step) === step));
+        prev.disabled = step === 0;
+        next.disabled = step === positions.length - 1;
+      }
+    }
+
+    const hintBox = h("p", { class: "note", style: "margin:0;color:var(--muted)" });
+    const actions = h("div", { class: "actions" });
+    if (!solution) {
+      if (p.hint) actions.append(h("button", { type: "button", class: "btn-ghost", onclick: (e) => { hintBox.textContent = p.hint; e.currentTarget.disabled = true; } }, "Hint"));
+      actions.append(h("button", { type: "button", class: "btn", onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        try {
+          const full = await call("puzzle_of_the_day", { reveal_solution: true });
+          renderPuzzle(full, full.solution);
+        } catch (err) { hintBox.textContent = err.message; e.currentTarget.disabled = false; }
+      } }, "Show solution"));
+    } else {
+      solution.san.forEach((m, i) => {
+        const solverMove = i % 2 === 0;
+        solBox.append(h("button", { type: "button", class: solverMove ? "solver" : "", "data-step": i + 1, onclick: () => go(i + 1) }, m));
+      });
+      actions.append(h("div", { class: "stepper" }, prev, next));
+    }
+
+    const lastMove = p.last_move?.san ? `after ${p.solver_color === "white" ? "Black" : "White"} played ${p.last_move.san}` : "";
+    const info = h("div", { class: "info" },
+      h("div", { class: "tomove" }, `${cap(p.solver_color)} to move`, h("small", {}, `Find ${p.solver_moves} move${p.solver_moves === 1 ? "" : "s"} ${lastMove}`.trim())),
+      h("dl", { class: "facts" },
+        h("dt", {}, "Rating"), h("dd", {}, String(p.rating)),
+        h("dt", {}, "Played"), h("dd", {}, `${p.plays.toLocaleString("en-US")} times`),
+        h("dt", {}, "From"), h("dd", {}, h("a", { href: p.source_game.url, target: "_blank", rel: "noopener" }, [p.source_game.white, p.source_game.black].filter(Boolean).join(" vs ") || p.source_game.id), p.source_game.speed ? `, ${p.source_game.speed.toLowerCase()}` : "")),
+      h("div", { class: "themes" }, p.themes.map((t) => h("span", { class: "pill" }, t))),
+      actions,
+      solution ? h("div", {}, h("p", { class: "note", style: "margin:0 0 8px;color:var(--muted);font-size:13px" }, "Solution from Lichess. Bold moves are yours; the rest are the forced replies."), solBox) : hintBox,
+      h("a", { href: p.url, target: "_blank", rel: "noopener", style: "font-size:14px" }, "Solve it on Lichess"));
+    box.replaceChildren(boardBox, info);
+    go(0);
+  }
+
+  // ---------- tool list ----------
+  const SOURCES = {
+    get_player: "Lichess user API",
+    recent_games: "Lichess game export (NDJSON)",
+    get_game: "Lichess server analysis",
+    find_mistakes: "Lichess server analysis",
+    evaluate_position: "Lichess cloud eval",
+    tablebase: "Lichess tablebase",
+    puzzle_of_the_day: "Lichess puzzles",
+    get_puzzle: "Lichess puzzles",
+    opening_stats: "Lichess opening explorer (token)",
+  };
+  function renderTools(tools) {
+    $("#tool-list").replaceChildren(...tools.map((t) => h("div", { class: "panel tool-card" },
+      h("code", {}, t.name),
+      h("p", {}, t.description),
+      h("div", { class: "src" }, SOURCES[t.name] || "Lichess"))));
+  }
+
+  // ---------- connect snippets ----------
+  const CLIENTS = [
+    { id: "claude-code", label: "Claude Code", blocks: [
+      { note: "Use this hosted endpoint:", code: `claude mcp add --transport http lichess ${ENDPOINT}` },
+      { note: "Or run it locally over stdio (add --env LICHESS_TOKEN=... to enable opening_stats):", code: "claude mcp add --transport stdio lichess -- npx -y lichess-coach-mcp" },
+    ] },
+    { id: "claude-desktop", label: "Claude Desktop", blocks: [
+      { note: "Add this to claude_desktop_config.json and restart Claude Desktop. To enable opening_stats, add \"env\": { \"LICHESS_TOKEN\": \"lip_...\" } with a personal token.", code: JSON.stringify({ mcpServers: { lichess: { command: "npx", args: ["-y", "lichess-coach-mcp"] } } }, null, 2) },
+      { note: "Or use the hosted endpoint: Settings > Connectors > Add custom connector, and paste this URL (custom connectors depend on your plan):", code: ENDPOINT },
+    ] },
+    { id: "cursor", label: "Cursor", blocks: [
+      { note: "Add to ~/.cursor/mcp.json (all projects) or .cursor/mcp.json (one project):", code: JSON.stringify({ mcpServers: { lichess: { url: ENDPOINT } } }, null, 2) },
+      { note: "Or run it locally:", code: JSON.stringify({ mcpServers: { lichess: { command: "npx", args: ["-y", "lichess-coach-mcp"] } } }, null, 2) },
+    ] },
+    { id: "inspector", label: "MCP Inspector", blocks: [
+      { note: "Debug this endpoint: run this, choose Streamable HTTP, and paste the endpoint URL.", code: "npx @modelcontextprotocol/inspector" },
+    ] },
+  ];
+  function renderClient(c) {
+    for (const b of document.querySelectorAll("#client-tabs .tab")) b.setAttribute("aria-selected", String(b.dataset.client === c.id));
+    $("#client-body").replaceChildren(...c.blocks.map((b) =>
+      h("div", {}, h("p", { class: "snippet-note" }, b.note),
+        h("div", { class: "snippet" }, h("pre", {}, h("code", {}, b.code)), h("button", { type: "button", class: "btn-ghost copy", onclick: (e) => copy(b.code, e.currentTarget) }, "Copy")))));
+  }
+  for (const c of CLIENTS) {
+    $("#client-tabs").append(h("button", { type: "button", class: "tab", role: "tab", "data-client": c.id, onclick: () => renderClient(c) }, c.label));
+  }
+  renderClient(CLIENTS[0]);
+
+  async function copy(text, btn) {
+    try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; }
+    catch { btn.textContent = "Select + copy"; }
+    setTimeout(() => (btn.textContent = "Copy"), 1500);
+  }
+  $("#endpoint-url").textContent = ENDPOINT;
+  $("#copy-endpoint").addEventListener("click", (e) => copy(ENDPOINT, e.currentTarget));
+
+  // ---------- boot ----------
+  fetch("/health").then((r) => r.json()).then((hl) => {
+    $("#health-stat").replaceChildren(h("b", {}, "Healthy"), ` · v${hl.version} · ${hl.limits.per_ip_per_minute} calls/min per visitor`);
+  }).catch(() => { $("#health-stat").textContent = "Health check failed"; });
+  rpc("tools/list", {}).then((r) => renderTools(r.tools)).catch((err) => {
+    $("#tool-list").replaceChildren(h("p", { class: "error" }, `Could not load tools: ${err.message}`));
+  });
+  loadPuzzle();
+  // /?user=name preloads a player, so a review can be shared as a link.
+  const fromQuery = new URLSearchParams(location.search).get("user");
+  if (fromQuery) loadPlayer(fromQuery);
+})();
+</script>
+</body>
+</html>
