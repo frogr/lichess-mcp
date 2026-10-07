@@ -1,0 +1,61 @@
+{
+  "name": "lichess-coach-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for the public Lichess API: player profiles, recent games, engine-flagged mistakes, cloud evals, endgame tablebase, puzzles and opening stats. The model never does the chess: every evaluation comes from Lichess. Runs over stdio or as a remote Streamable HTTP server with a web playground.",
+  "type": "module",
+  "bin": {
+    "lichess-coach-mcp": "dist/index.js",
+    "lichess-coach-mcp-http": "dist/http.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "public",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/chmod-bin.mjs",
+    "dev": "tsc -p tsconfig.json --watch",
+    "start": "node dist/http.js",
+    "start:stdio": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "smoke": "npm run build && node scripts/smoke.mjs",
+    "smoke:http": "npm run build && node scripts/smoke-http.mjs",
+    "screenshots": "npm run build && node scripts/screenshots.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "lichess",
+    "chess",
+    "stockfish",
+    "tablebase",
+    "claude",
+    "cursor"
+  ],
+  "author": "Austin French <austindanielfrench@gmail.com> (https://austn.net)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frogr/lichess-mcp.git"
+  },
+  "homepage": "https://github.com/frogr/lichess-mcp#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "chess.js": "^1.4.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "playwright-core": "^1.63.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}
