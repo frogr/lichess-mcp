@@ -33,7 +33,11 @@ So the work is split:
 
 ## Install
 
-Requires Node.js 20 or newer. The npm package is `lichess-coach-mcp` (the name `lichess-mcp` on npm belongs to an unrelated project).
+Requires Node.js 20 or newer. The package name is `lichess-coach-mcp` (the name `lichess-mcp` on npm belongs to an unrelated project).
+
+The package is not on npm yet. The commands below install it straight from GitHub with `npx -y github:frogr/lichess-mcp`: npm clones the repo, installs dependencies and builds it (a `prepare` script runs `npm run build`). The first start takes about 20 seconds while that happens, so run it once in a terminal before adding it to a client. If you'd rather not run a build through npx, use [From source](#from-source).
+
+After the package is published to npm, `npx -y lichess-coach-mcp` will do the same thing. Until then, don't run that name: nothing has been published under it by this project.
 
 ### Claude Desktop
 
@@ -44,7 +48,7 @@ Add this to `claude_desktop_config.json` (macOS: `~/Library/Application Support/
   "mcpServers": {
     "lichess": {
       "command": "npx",
-      "args": ["-y", "lichess-coach-mcp"]
+      "args": ["-y", "github:frogr/lichess-mcp"]
     }
   }
 }
@@ -55,10 +59,10 @@ To enable `opening_stats`, add `"env": { "LICHESS_TOKEN": "lip_..." }` with your
 ### Claude Code
 
 ```bash
-claude mcp add --transport stdio lichess -- npx -y lichess-coach-mcp
+claude mcp add --transport stdio lichess -- npx -y github:frogr/lichess-mcp
 
 # with a token, available in every project:
-claude mcp add --env LICHESS_TOKEN=lip_... --transport stdio --scope user lichess -- npx -y lichess-coach-mcp
+claude mcp add --env LICHESS_TOKEN=lip_... --transport stdio --scope user lichess -- npx -y github:frogr/lichess-mcp
 
 # or a hosted copy of the remote server:
 claude mcp add --transport http lichess https://your-host.example/mcp
@@ -73,7 +77,7 @@ Add to `~/.cursor/mcp.json` (all projects) or `.cursor/mcp.json` (this project):
   "mcpServers": {
     "lichess": {
       "command": "npx",
-      "args": ["-y", "lichess-coach-mcp"]
+      "args": ["-y", "github:frogr/lichess-mcp"]
     }
   }
 }
@@ -85,7 +89,7 @@ For a hosted copy, use `{ "url": "https://your-host.example/mcp" }` instead.
 
 ```bash
 git clone https://github.com/frogr/lichess-mcp && cd lichess-mcp
-npm install && npm run build
+npm ci   # also builds dist/ through the prepare script
 # then use "command": "node", "args": ["/absolute/path/to/lichess-mcp/dist/index.js"]
 ```
 
@@ -181,7 +185,7 @@ Tests run against responses recorded from the real Lichess API in `test/fixtures
 
 ```
 src/
-  index.ts         stdio entrypoint (the npx bin)
+  index.ts         stdio entrypoint (the package bin)
   http.ts          Node HTTP adapter for the remote server
   app.ts           routes, CORS, rate limits, size and time limits
   server.ts        tool registration and server instructions
@@ -196,11 +200,11 @@ scripts/           smoke tests, live check, screenshots
 
 ## Credits
 
-Data from the [Lichess API](https://lichess.org/api). Not affiliated with Lichess. Piece images are the cburnett set by Colin M.L. Burnett, the set Lichess uses by default, licensed GPLv2+ (as listed in Lichess's COPYING.md).
+Data from the [Lichess API](https://lichess.org/api). Not affiliated with Lichess. Piece images are the cburnett set by Colin M.L. Burnett, the set Lichess uses by default, licensed GPLv2+ (as listed in Lichess's COPYING.md). They are not under this repo's MIT license: [`public/pieces/LICENSE`](public/pieces/LICENSE) has the attribution and the full GPLv2 text, and it applies if you copy those files.
 
 ## License
 
-MIT © Austin French (code). The piece SVGs in `public/pieces/` keep their own license, above.
+MIT © Austin French, for the code. The piece SVGs in `public/pieces/` are GPLv2+, not MIT; see [`public/pieces/LICENSE`](public/pieces/LICENSE).
 
 ---
 

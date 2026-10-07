@@ -659,15 +659,15 @@
   const CLIENTS = [
     { id: "claude-code", label: "Claude Code", blocks: [
       { note: "Use this hosted endpoint:", code: `claude mcp add --transport http lichess ${ENDPOINT}` },
-      { note: "Or run it locally over stdio (add --env LICHESS_TOKEN=... to enable opening_stats):", code: "claude mcp add --transport stdio lichess -- npx -y lichess-coach-mcp" },
+      { note: "Or run it locally over stdio; npx installs it from GitHub and builds it on first run (add --env LICHESS_TOKEN=... to enable opening_stats):", code: "claude mcp add --transport stdio lichess -- npx -y github:frogr/lichess-mcp" },
     ] },
     { id: "claude-desktop", label: "Claude Desktop", blocks: [
-      { note: "Add this to claude_desktop_config.json and restart Claude Desktop. To enable opening_stats, add \"env\": { \"LICHESS_TOKEN\": \"lip_...\" } with a personal token.", code: JSON.stringify({ mcpServers: { lichess: { command: "npx", args: ["-y", "lichess-coach-mcp"] } } }, null, 2) },
+      { note: "Add this to claude_desktop_config.json and restart Claude Desktop. To enable opening_stats, add \"env\": { \"LICHESS_TOKEN\": \"lip_...\" } with a personal token.", code: JSON.stringify({ mcpServers: { lichess: { command: "npx", args: ["-y", "github:frogr/lichess-mcp"] } } }, null, 2) },
       { note: "Or use the hosted endpoint: Settings > Connectors > Add custom connector, and paste this URL (custom connectors depend on your plan):", code: ENDPOINT },
     ] },
     { id: "cursor", label: "Cursor", blocks: [
       { note: "Add to ~/.cursor/mcp.json (all projects) or .cursor/mcp.json (one project):", code: JSON.stringify({ mcpServers: { lichess: { url: ENDPOINT } } }, null, 2) },
-      { note: "Or run it locally:", code: JSON.stringify({ mcpServers: { lichess: { command: "npx", args: ["-y", "lichess-coach-mcp"] } } }, null, 2) },
+      { note: "Or run it locally:", code: JSON.stringify({ mcpServers: { lichess: { command: "npx", args: ["-y", "github:frogr/lichess-mcp"] } } }, null, 2) },
     ] },
     { id: "inspector", label: "MCP Inspector", blocks: [
       { note: "Debug this endpoint: run this, choose Streamable HTTP, and paste the endpoint URL.", code: "npx @modelcontextprotocol/inspector" },

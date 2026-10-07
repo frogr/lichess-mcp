@@ -184,7 +184,7 @@ export function createApp(opts: AppOptions): Handler {
           const day = daily.take();
           if (!day.allowed) {
             return withHeaders(
-              rpcError(429, -32000, "This public demo hit its daily request cap. Try again tomorrow, or run the server yourself (npx lichess-coach-mcp).", {
+              rpcError(429, -32000, "This public demo hit its daily request cap. Try again tomorrow, or run the server yourself (npx -y github:frogr/lichess-mcp).", {
                 "Retry-After": String(day.retryAfterSec),
               }),
               cors,

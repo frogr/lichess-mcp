@@ -111,6 +111,23 @@ Taken with `node scripts/screenshots.mjs thibault` (Playwright with the preinsta
 - `docs/screenshots/connect.png`: client config tabs
 - `docs/screenshots/phone.png`, `phone-review.png`, `phone-puzzle.png`: phone width
 
+## Install from GitHub without npm
+
+The package is not on npm. The README installs it with `npx -y github:frogr/lichess-mcp`, which works because a `prepare` script runs `npm run build` when npm installs from git. The GitHub repo wasn't public when this was checked, so the same path was tested from a local git URL with an empty npx cache:
+
+```
+$ rm -rf ~/.npm/_npx
+$ echo '{"jsonrpc":"2.0","id":1,"method":"initialize",...}' | npx -y git+file:///home/claude/lichess-mcp
+lichess-mcp running on stdio
+{"result":{"protocolVersion":"2025-06-18",...,"serverInfo":{"name":"lichess","version":"0.1.0"},...}
+```
+
+First start took 14 s (clone, install, TypeScript build). Not checked: the same command against github.com, which needs the repo to be public.
+
+## Piece images license
+
+The 12 SVGs in `public/pieces/` are byte-identical to `public/piece/cburnett/` in the lichess-org/lila repository (each one compared with `curl -sSfL https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett/<name>.svg | cmp - public/pieces/<name>.svg`: 12 identical). They are GPLv2+, so `public/pieces/LICENSE` has the attribution and the full GPLv2 text from gnu.org.
+
 ## Not verified
 
 - `opening_stats` with a real token. There is no token here; the request shape is tested against a synthetic response built from the Lichess API docs, and the no-token and refused-token paths are tested against the real 401.
@@ -118,4 +135,4 @@ Taken with `node scripts/screenshots.mjs thibault` (Playwright with the preinsta
 - The Docker image was not built (no Docker in the sandbox).
 - Real clients (Claude Desktop, Claude Code, Cursor) were not connected. The official SDK client was, over stdio and over HTTP.
 - No LLM is called by this server, so there is no API-key mode to test. Whether a model follows the "don't evaluate yourself" instruction depends on the client model; the server can only make the right data easy and the gap explicit.
-- `npx lichess-coach-mcp` assumes the package gets published under that name. It has not been published.
+- The package has not been published to npm. The README uses `npx -y github:frogr/lichess-mcp` until it is; `npx -y lichess-coach-mcp` will only work after publishing under that name.
